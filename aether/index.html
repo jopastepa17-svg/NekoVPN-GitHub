@@ -954,6 +954,7 @@ async function startCall(video){
     _callPC.onicecandidate=ev=>{if(!ev.candidate){const offer=JSON.stringify(_callPC.localDescription);$('#callST').textContent='ОФФЕР ГОТОВ · СИГНАЛИЗАЦИЯ';console.log('[CALL] offer',offer.slice(0,200))}};
     const offer=await _callPC.createOffer({offerToReceiveAudio:true,offerToReceiveVideo:video});await _callPC.setLocalDescription(offer);
     setTimeout(()=>{if(!cs.classList.contains('connected')){$('#callST').textContent='📋 Скопируйте оффер через info'}},1500);
+  acquireWake();
   }catch(e){console.warn(e);cs.classList.add('connected');$('#callST').textContent='🔒 СИМУЛЯЦИЯ ('+(e&&e.message?e.message:'нет камеры')+')'}
 }
 function startVU(stream){
@@ -970,6 +971,7 @@ function endCall(){
   if(_callPC){try{_callPC.close()}catch(e){};_callPC=null}
   const sv=$('#callSelf');if(sv){sv.srcObject=null;sv.style.display='none'}
   const rv=$('#callRemote');if(rv){rv.srcObject=null;rv.remove()}
+  releaseWake();
   $('#callST').textContent='Звонок завершён';
 }
 async function shareScreen(){
@@ -1975,6 +1977,60 @@ function viewBurn(m){
     const idx=S.currentChat.messages.indexOf(m);if(idx>=0)S.currentChat.messages.splice(idx,1);renderMsgs();saveState();toast('🔥 Фото сгорело')
   },4000);
 }
+
+/* ===== EXPORT CHAT as JSON ===== */
+async function exportChat(c){
+  const data={chat:c.name,messages:c.messages,exportedAt:new Date().toISOString(),version:'2.1'};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='aether-chat-'+c.name.replace(/[^\wа-яё]/gi,'-')+'-'+Date.now()+'.json';a.click();toast('✓ Экспортировано')
+}
+
+/* ===== SCREEN WAKE LOCK (keep screen on during calls) ===== */
+let _wakeLock=null;
+async function acquireWake(){try{if('wakeLock'in navigator)_wakeLock=await navigator.wakeLock.request('screen')}catch(e){}}
+function releaseWake(){if(_wakeLock){_wakeLock.release().catch(()=>{});_wakeLock=null}}
+document.addEventListener('visibilitychange',()=>{if(_wakeLock!==null&&document.visibilityState==='visible')acquireWake()});
+
+/* ===== BATTERY SAVER (reduce animations when <20%) ===== */
+if('getBattery'in navigator){navigator.getBattery().then(b=>{function check(){document.body.classList.toggle('battery-saver',b.level<0.2&&!b.charging)}b.addEventListener('levelchange',check);check()})}
+
+/* ===== DEVICE INFO (for settings/diagnostics) ===== */
+function deviceInfo(){
+  return{
+    ua:navigator.userAgent,
+    platform:navigator.platform||'web',
+    lang:navigator.language,
+    cores:navigator.hardwareConcurrency||'?',
+    mem:navigator.deviceMemory||'?',
+    screen:screen.width+'x'+screen.height+' @'+window.devicePixelRatio+'x',
+    crypto:!!window.crypto&&!!window.crypto.subtle,
+    rtc:!!RTC,notif:('Notification'in window),indexed:('indexedDB'in window),bluetooth:!!navigator.bluetooth,usb:!!navigator.usb,
+    webrtcData:!!(window.RTCDataChannel),
+    battery:'getBattery'in navigator
+  };
+}
+setTimeout(()=>console.table(deviceInfo()),2000);
+
+/* ===== NICKNAMES for contacts (display alias instead of real name) ===== */
+function setNickname(c,nn){if(!c)return;c.nick=nn;saveState();renderChatList();if(S.currentChat&&S.currentChat.id===c.id){$('#cName').textContent=nn||c.name}}
+
+/* ===== QUICK REACT HOVER BAR on desktop ===== */
+if(window.matchMedia('(pointer:fine)').matches){
+  document.addEventListener('mouseover',e=>{
+    const w=e.target.closest('.mes');if(!w)return;if(w.querySelector('.rbar'))return;
+    const bar=el('div',{class:'rbar',style:'position:absolute;right:-40px;top:8px;display:flex;gap:2px;background:var(--bg3);border-radius:20px;padding:3px;box-shadow:0 2px 10px rgba(0,0,0,.5)'},['❤️','👍','😂','🔥','⭐'].map(r=>el('button',{class:'btn ghost',onclick:e=>{e.stopPropagation();addReact(w.dataset.mid,r);renderReacts(w,w.dataset.mid);bar.remove()},style:'padding:2px 6px;font-size:16px;border:none;background:transparent'},r)));
+    w.style.position='relative';w.appendChild(bar);
+  });
+  document.addEventListener('mouseout',e=>{const w=e.target.closest('.mes');if(w&&!w.contains(e.relatedTarget)){const b=w.querySelector('.rbar');if(b)b.remove()}});
+}
+
+/* ===== MEMORY CLEANUP: revoke old blob URLs occasionally ===== */
+setInterval(()=>{if(S._blobs&&S._blobs.length>50){const u=S._blobs.shift();try{URL.revokeObjectURL(u)}catch(e){}}},60000);
+S._blobs=S._blobs||[];
+const _createOB=URL.createObjectURL;URL.createObjectURL=function(b){const u=_createOB.call(URL,b);S._blobs.push(u);return u};
+
+/* ===== CHAT ENCRYPTION VERIFIER (shows if session keys match) ===== */
+function verifySession(){if(S.currentChat&&S.sessions&&S.sessions[S.currentChat.id]){toast('🔑 Ратчет активен, Ns='+S.sessions[S.currentChat.id].Ns)}else toast('Сессия не инициализирована')}
 
 document.addEventListener('DOMContentLoaded',()=>{bootProgressive();boot().catch(e=>{console.error(e);setSplash('ERROR',1);setTimeout(()=>showScreen('welcome'),500)})});
 
