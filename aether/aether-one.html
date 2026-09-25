@@ -721,7 +721,7 @@ function renderMe(){
   pt.appendChild(el('div',{class:'pr'},el('svg',{class:'rsvg',viewBox:'0 0 130 130'},el('circle',{class:'rc',cx:'65',cy:'65',r:'60',stroke:'#D4AF37','stroke-width':'1',fill:'none','stroke-dasharray':'3 8'})),el('div',{class:'av xl'},S.user.init)));
   pt.appendChild(el('div',{class:'pn'},S.user.name));
   pt.appendChild(el('div',{class:'pf'},S.user.freq+' · P-256'));
-  pt.appendChild(el('div',{class:'pb'},S.userBio||'Частица золотого эфира'));
+  pt.appendChild(el('div',{class:'pb'},S.user.bio||S.userBio||'Частица золотого эфира'));
   const pa=$('#pa');pa.innerHTML='';
   [{i:'🔲',l:'Мой QR',f:()=>{openModal('qrModal');renderQR()}},{i:'📇',l:'Визитка',f:exportContact},{i:'📷',l:'Скан',f:()=>openModal('qrImportModal')},{i:'🌱',l:'Сид',f:()=>{renderSeedModal();openModal('seedModal')}},{i:'⭐',l:'Избранное',f:()=>{renderStars();openModal('starModal')}},{i:'💾',l:'Бэкап',f:()=>exportBackup()},{i:'📥',l:'Импорт',f:()=>{const inp=document.createElement('input');inp.type='file';inp.accept='.aether,.aether-contact';inp.onchange=()=>{if(!inp.files[0])return;if(inp.files[0].name.endsWith('.aether-contact'))importContactFile(inp.files[0]);else importBackupFile(inp.files[0])};inp.click()}},{i:'🎨',l:'Тема',f:()=>openModal('themeModal')},{i:'🛡️',l:'Защита',f:()=>switchTab('sec')},{i:'ℹ',l:'О Aether',f:()=>openModal('aboutModal')}].forEach(a=>{
     pa.appendChild(el('button',{class:'pab',onclick:a.f},el('span',{},a.i),a.l));
@@ -1118,7 +1118,7 @@ async function boot(){
   $('#restoreGo').onclick=async()=>{const words=$('#restoreSeed').value.trim().toLowerCase().split(/\s+/);const pin=$('#restorePin').value;if(words.length!==12){toast('Нужно ровно 12 слов');return}if(pin.length<4){toast('PIN минимум 4 цифры');return}for(const w of words)if(!WL.includes(w)){toast('Неизвестное слово: '+w);return}
     S.pin=pin;S.seed=words;closeModal('restoreModal');setSplash('Восстановление...',0.7);await initIdentity(pin);setSplash('Готово',1);showScreen('app');toast('✓ Идентичность восстановлена')};
   $('#profBack').onclick=()=>showScreen('welcome');
-  $('#profNext').onclick=()=>{const n=$('#setupName').value.trim();if(!n){toast('Введите имя');return}S.userName=n;S.userInit=n[0].toUpperCase();const b=$('#setupBio').value.trim();if(b)S.userBio=b;showScreen('pin');setPinFlow()};
+  $('#profNext').onclick=()=>{const n=$('#setupName').value.trim();if(!n){toast('Введите имя');return}S.user.name=n;S.user.init=n[0].toUpperCase();S.userName=n;S.userInit=n[0].toUpperCase();const b=$('#setupBio').value.trim();if(b){S.user.bio=b;S.userBio=b}showScreen('pin');setPinFlow()};
   // Rest
   $('#newChatBtn').onclick=()=>openModal('newChatModal');
   $('#lockHBtn').onclick=()=>lockApp(true);
